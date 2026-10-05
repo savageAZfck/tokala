@@ -11,10 +11,7 @@ fn args(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
 #[test]
 fn safe_action_approves() {
     let council = Council::new();
-    let v = council.deliberate(
-        "run_shell",
-        &args(&[("command", "ls -la /tmp/scratch")]),
-    );
+    let v = council.deliberate("run_shell", &args(&[("command", "ls -la /tmp/scratch")]));
     assert_eq!(v.decision, Decision::Approve);
     assert!(v.dissent < 0.55);
     assert_eq!(v.votes.len(), 14);
@@ -29,7 +26,10 @@ fn destructive_irreversible_is_contested() {
     );
     // Mass destruction + privilege — the council cannot give a clean go.
     assert!(v.contested(0.55));
-    assert!(v.votes.iter().any(|v| v.vote < -0.15), "some seat must dissent");
+    assert!(
+        v.votes.iter().any(|v| v.vote < -0.15),
+        "some seat must dissent"
+    );
 }
 
 #[test]
@@ -52,7 +52,10 @@ fn writing_credentials_is_sensitive() {
         ]),
     );
     assert!(f.target_sensitivity > 0.3);
-    assert!(f.destructiveness >= 0.65, "bad authorized_keys locks you out");
+    assert!(
+        f.destructiveness >= 0.65,
+        "bad authorized_keys locks you out"
+    );
 }
 
 #[test]

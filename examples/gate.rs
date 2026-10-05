@@ -20,7 +20,11 @@ fn main() {
             args.insert("path".to_string(), cmd_or_path.to_string());
         }
         let v = council.deliberate(tool, &args);
-        let gate = if council.may_execute(&v) { "EXECUTE" } else { "ESCALATE" };
+        let gate = if council.may_execute(&v) {
+            "EXECUTE"
+        } else {
+            "ESCALATE"
+        };
         println!("{gate:9} {tool:12} {cmd_or_path:50}");
         println!("          {}", v.summary());
     }

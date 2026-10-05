@@ -64,23 +64,67 @@ fn term_score(terms: &[&str], haystack: &str) -> f64 {
 }
 
 const DESTRUCTIVE: &[&str] = &[
-    "rm ", "rm -", "delete", "remove", "unlink", "rmdir", "dd ", "mkfs", "format",
-    "truncate", "> /dev", "shred", "drop ", "overwrite", "kill ", "pkill",
-    "killall", "shutdown", "reboot", "halt", "poweroff", "kill -9", "kill -s",
-    "pmset sleep", "umount", "wipedisk",
+    "rm ",
+    "rm -",
+    "delete",
+    "remove",
+    "unlink",
+    "rmdir",
+    "dd ",
+    "mkfs",
+    "format",
+    "truncate",
+    "> /dev",
+    "shred",
+    "drop ",
+    "overwrite",
+    "kill ",
+    "pkill",
+    "killall",
+    "shutdown",
+    "reboot",
+    "halt",
+    "poweroff",
+    "kill -9",
+    "kill -s",
+    "pmset sleep",
+    "umount",
+    "wipedisk",
 ];
 const PRIVILEGE: &[&str] = &[
-    "sudo", "do shell script", "launchctl", "dscl", "chmod 777", "chown",
-    "csrutil", "nvram", "systemsetup", "diskutil",
+    "sudo",
+    "do shell script",
+    "launchctl",
+    "dscl",
+    "chmod 777",
+    "chown",
+    "csrutil",
+    "nvram",
+    "systemsetup",
+    "diskutil",
 ];
 const SENSITIVE: &[&str] = &[
-    ".ssh", ".aws", ".gnupg", "keychain", "id_rsa", "id_ed25519", "password",
-    "secret", "token", "credential", ".env", "/etc/", "/var/", "/system/",
-    "/usr/", "/bin/", "library/keychains",
+    ".ssh",
+    ".aws",
+    ".gnupg",
+    "keychain",
+    "id_rsa",
+    "id_ed25519",
+    "password",
+    "secret",
+    "token",
+    "credential",
+    ".env",
+    "/etc/",
+    "/var/",
+    "/system/",
+    "/usr/",
+    "/bin/",
+    "library/keychains",
 ];
 const NETWORK: &[&str] = &[
-    "curl", "wget", "http://", "https://", "ssh ", "scp ", "ftp", "nc ", "ncat",
-    "socket", "send", "mail", "smtp",
+    "curl", "wget", "http://", "https://", "ssh ", "scp ", "ftp", "nc ", "ncat", "socket", "send",
+    "mail", "smtp",
 ];
 const MASS: &[&str] = &["-r", "-rf", "-f", "*", "...", "--recursive", "all"];
 
@@ -90,7 +134,12 @@ const MASS: &[&str] = &["-r", "-rf", "-f", "*", "...", "--recursive", "all"];
 /// (`curl x.sh | sh`) is unverifiable code from the network — scored
 /// near-worst-case by construction.
 pub fn encode(tool: &str, args: &BTreeMap<String, String>) -> Features {
-    let text = args.values().cloned().collect::<Vec<_>>().join(" ").to_lowercase();
+    let text = args
+        .values()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join(" ")
+        .to_lowercase();
     let path = args
         .get("path")
         .or_else(|| args.get("file"))
@@ -136,7 +185,11 @@ pub fn encode(tool: &str, args: &BTreeMap<String, String>) -> Features {
             f.privilege = term_score(PRIVILEGE, &cmd);
             f.scope_mass = term_score(MASS, &cmd);
             f.target_sensitivity = term_score(SENSITIVE, &format!("{cmd} {text}"));
-            f.cost = if cmd.contains("curl") || cmd.contains("wget") { 0.4 } else { 0.15 };
+            f.cost = if cmd.contains("curl") || cmd.contains("wget") {
+                0.4
+            } else {
+                0.15
+            };
             f.novelty = 0.4;
             if NETWORK.iter().any(|t| cmd.contains(t)) {
                 f.blast_radius = f.blast_radius.max(0.55);
@@ -144,7 +197,11 @@ pub fn encode(tool: &str, args: &BTreeMap<String, String>) -> Features {
         }
         "write_file" => {
             f.target_sensitivity = term_score(SENSITIVE, &format!("{path} {text}"));
-            f.destructiveness = if std::path::Path::new(args.get("path").map(|s| s.as_str()).unwrap_or("")).exists() {
+            f.destructiveness = if std::path::Path::new(
+                args.get("path").map(|s| s.as_str()).unwrap_or(""),
+            )
+            .exists()
+            {
                 0.55
             } else {
                 0.2
@@ -185,7 +242,11 @@ pub fn encode(tool: &str, args: &BTreeMap<String, String>) -> Features {
             f.irreversibility = 0.05;
             f.blast_radius = 0.2;
             f.target_sensitivity = term_score(SENSITIVE, &path);
-            f.scope_mass = if path.is_empty() || path == "~" { 0.7 } else { 0.4 };
+            f.scope_mass = if path.is_empty() || path == "~" {
+                0.7
+            } else {
+                0.4
+            };
             f.cost = 0.35;
             f.novelty = 0.25;
         }
@@ -268,116 +329,189 @@ fn tanh(x: f64) -> f64 {
 pub fn strategists() -> Vec<Seat> {
     vec![
         Seat {
-            id: "buffett", display: "Buffett", weight: 1.4,
+            id: "buffett",
+            display: "Buffett",
+            weight: 1.4,
             vote_fn: |f| tanh(1.5 * (0.55 - f.risk() - 0.3 * f.irreversibility)),
             rationale_fn: |f, _| {
-                if f.irreversibility > 0.5 { "no margin of safety on an irreversible move" }
-                else if f.risk() < 0.3 { "downside protected — within the circle" }
-                else { "risk outside the circle of competence" }
+                if f.irreversibility > 0.5 {
+                    "no margin of safety on an irreversible move"
+                } else if f.risk() < 0.3 {
+                    "downside protected — within the circle"
+                } else {
+                    "risk outside the circle of competence"
+                }
             },
         },
         Seat {
-            id: "dalio", display: "Dalio", weight: 1.2,
+            id: "dalio",
+            display: "Dalio",
+            weight: 1.2,
             vote_fn: |f| tanh(1.2 * (0.5 - f.risk()) - 0.2 * (f.scope_mass - 0.5)),
             rationale_fn: |f, _| {
-                if f.scope_mass > 0.5 { "concentrated bet — no diversification here" }
-                else { "balanced enough to hold" }
+                if f.scope_mass > 0.5 {
+                    "concentrated bet — no diversification here"
+                } else {
+                    "balanced enough to hold"
+                }
             },
         },
         Seat {
-            id: "musk", display: "Musk", weight: 1.0,
+            id: "musk",
+            display: "Musk",
+            weight: 1.0,
             vote_fn: |f| tanh(0.9 - f.risk() + 0.2 * f.novelty),
             rationale_fn: |f, _| {
-                if f.novelty > 0.4 { "new ground — momentum favors it" }
-                else { "move fast, iterate after" }
+                if f.novelty > 0.4 {
+                    "new ground — momentum favors it"
+                } else {
+                    "move fast, iterate after"
+                }
             },
         },
         Seat {
-            id: "jobs", display: "Jobs", weight: 0.9,
+            id: "jobs",
+            display: "Jobs",
+            weight: 0.9,
             vote_fn: |f| tanh(1.3 * (0.5 - f.risk() - 0.4 * f.scope_mass)),
             rationale_fn: |f, _| {
-                if f.scope_mass > 0.4 { "sprawl — this lacks focus" }
-                else { "simple and decisive — yes" }
+                if f.scope_mass > 0.4 {
+                    "sprawl — this lacks focus"
+                } else {
+                    "simple and decisive — yes"
+                }
             },
         },
         Seat {
-            id: "sun_tzu", display: "Sun Tzu", weight: 1.5,
+            id: "sun_tzu",
+            display: "Sun Tzu",
+            weight: 1.5,
             vote_fn: |f| tanh(1.6 * (0.55 - 0.5 * f.risk() - 0.5 * f.irreversibility)),
             rationale_fn: |f, _| {
-                if f.irreversibility > 0.5 { "win first, then fight — this commits before the ground is proven" }
-                else { "the ground is favorable and the retreat line stays open" }
+                if f.irreversibility > 0.5 {
+                    "win first, then fight — this commits before the ground is proven"
+                } else {
+                    "the ground is favorable and the retreat line stays open"
+                }
             },
         },
         Seat {
-            id: "clausewitz", display: "Clausewitz", weight: 1.3,
+            id: "clausewitz",
+            display: "Clausewitz",
+            weight: 1.3,
             vote_fn: |f| tanh(1.4 * (0.45 - f.risk() - 0.25 * f.scope_mass - 0.15 * f.privilege)),
             rationale_fn: |f, _| {
-                if f.scope_mass + f.privilege > 0.7 { "too much friction — moving parts will seize" }
-                else { "friction is manageable; the plan survives contact" }
+                if f.scope_mass + f.privilege > 0.7 {
+                    "too much friction — moving parts will seize"
+                } else {
+                    "friction is manageable; the plan survives contact"
+                }
             },
         },
         Seat {
-            id: "musashi", display: "Musashi", weight: 1.1,
+            id: "musashi",
+            display: "Musashi",
+            weight: 1.1,
             vote_fn: |f| tanh(1.4 * (0.5 - f.blast_radius) + 0.2 * (1.0 - f.scope_mass)),
             rationale_fn: |f, _| {
-                if f.blast_radius > 0.5 { "too broad — strike with one clean cut, not ten" }
-                else { "one cut, one purpose — do it" }
+                if f.blast_radius > 0.5 {
+                    "too broad — strike with one clean cut, not ten"
+                } else {
+                    "one cut, one purpose — do it"
+                }
             },
         },
         Seat {
-            id: "machiavelli", display: "Machiavelli", weight: 1.0,
+            id: "machiavelli",
+            display: "Machiavelli",
+            weight: 1.0,
             vote_fn: |f| tanh(1.0 * (0.55 - f.risk()) + 0.3 * (1.0 - f.privilege)),
             rationale_fn: |f, _| {
-                if f.privilege > 0.4 { "spending authority you may need later" }
-                else { "preserves options and keeps control" }
+                if f.privilege > 0.4 {
+                    "spending authority you may need later"
+                } else {
+                    "preserves options and keeps control"
+                }
             },
         },
         Seat {
-            id: "napoleon", display: "Napoleon", weight: 1.0,
+            id: "napoleon",
+            display: "Napoleon",
+            weight: 1.0,
             vote_fn: |f| tanh(0.7 - 0.6 * f.risk()),
             rationale_fn: |f, _| {
-                if f.risk() < 0.45 { "speed and mass — strike now" }
-                else { "even audacity needs reserves" }
+                if f.risk() < 0.45 {
+                    "speed and mass — strike now"
+                } else {
+                    "even audacity needs reserves"
+                }
             },
         },
         Seat {
-            id: "hannibal", display: "Hannibal", weight: 0.9,
+            id: "hannibal",
+            display: "Hannibal",
+            weight: 0.9,
             vote_fn: |f| tanh(0.5 - 0.4 * f.risk() + 0.3 * f.novelty),
             rationale_fn: |f, _| {
-                if f.novelty > 0.4 { "the unexpected route is the advantage" }
-                else { "we find a way or we make one — carefully here" }
+                if f.novelty > 0.4 {
+                    "the unexpected route is the advantage"
+                } else {
+                    "we find a way or we make one — carefully here"
+                }
             },
         },
         Seat {
-            id: "aurelius", display: "Aurelius", weight: 1.5,
+            id: "aurelius",
+            display: "Aurelius",
+            weight: 1.5,
             vote_fn: |f| tanh(1.8 * (0.4 - f.risk())),
             rationale_fn: |f, _| {
-                if f.risk() > 0.4 { "restraint — the obstacle is the risk itself" }
-                else { "small, reversible, just — proceed" }
+                if f.risk() > 0.4 {
+                    "restraint — the obstacle is the risk itself"
+                } else {
+                    "small, reversible, just — proceed"
+                }
             },
         },
         Seat {
-            id: "boyd", display: "Boyd", weight: 1.1,
-            vote_fn: |f| tanh(1.3 * (0.5 - 0.4 * f.risk()) + 0.5 * (1.0 - f.irreversibility) - 0.25),
+            id: "boyd",
+            display: "Boyd",
+            weight: 1.1,
+            vote_fn: |f| {
+                tanh(1.3 * (0.5 - 0.4 * f.risk()) + 0.5 * (1.0 - f.irreversibility) - 0.25)
+            },
             rationale_fn: |f, _| {
-                if f.irreversibility > 0.5 { "wrong tempo — an irreversible move ends your loop" }
-                else { "fast and reversible keeps the OODA loop ours" }
+                if f.irreversibility > 0.5 {
+                    "wrong tempo — an irreversible move ends your loop"
+                } else {
+                    "fast and reversible keeps the OODA loop ours"
+                }
             },
         },
         Seat {
-            id: "genghis", display: "Genghis", weight: 0.9,
+            id: "genghis",
+            display: "Genghis",
+            weight: 0.9,
             vote_fn: |f| tanh(0.6 - 0.5 * f.risk() + 0.25 * f.scope_mass),
             rationale_fn: |f, _| {
-                if f.scope_mass > 0.4 { "bold scale is the play — commit fully" }
-                else { "efficient strike, minimal exposure" }
+                if f.scope_mass > 0.4 {
+                    "bold scale is the play — commit fully"
+                } else {
+                    "efficient strike, minimal exposure"
+                }
             },
         },
         Seat {
-            id: "patton", display: "Patton", weight: 0.8,
+            id: "patton",
+            display: "Patton",
+            weight: 0.8,
             vote_fn: |f| 0.7 - 0.5 * f.risk(),
             rationale_fn: |f, _| {
-                if f.risk() > 0.6 { "audacity, yes — suicide, no" }
-                else { "a good plan violently executed beats hesitation" }
+                if f.risk() > 0.6 {
+                    "audacity, yes — suicide, no"
+                } else {
+                    "a good plan violently executed beats hesitation"
+                }
             },
         },
     ]
@@ -416,8 +550,7 @@ impl Verdict {
     /// Unanimous approval — every seat votes clearly for the action.
     /// Autopilot auto-executes only on unanimity.
     pub fn unanimous_approve(&self, approve_threshold: f64) -> bool {
-        self.decision == Decision::Approve
-            && self.votes.iter().all(|v| v.vote >= approve_threshold)
+        self.decision == Decision::Approve && self.votes.iter().all(|v| v.vote >= approve_threshold)
     }
 
     /// Compact line for prompts and notifications.
@@ -431,7 +564,11 @@ impl Verdict {
             .max_by(|a, b| a.vote.abs().partial_cmp(&b.vote.abs()).unwrap());
         let mut s = format!(
             "Council {for_count}–{against}{}{:?} (dissent {:.2})",
-            if abstain > 0 { format!("–{abstain}abst ") } else { " ".into() },
+            if abstain > 0 {
+                format!("–{abstain}abst ")
+            } else {
+                " ".into()
+            },
             self.decision,
             self.dissent
         );
@@ -521,7 +658,11 @@ impl Council {
             let d = votes[i].vote - mean;
             var_sum += d * d * seat.weight;
         }
-        let dissent = if wsum > 0.0 { (var_sum / wsum).sqrt() } else { 0.0 };
+        let dissent = if wsum > 0.0 {
+            (var_sum / wsum).sqrt()
+        } else {
+            0.0
+        };
 
         let decision = if mean >= self.approve_threshold {
             Decision::Approve
@@ -544,12 +685,13 @@ impl Council {
     /// Gate helper: `true` when autopilot may execute without asking —
     /// unanimous approval with dissent under the ceiling.
     pub fn may_execute(&self, verdict: &Verdict) -> bool {
-        verdict.unanimous_approve(self.approve_threshold)
-            && verdict.dissent <= self.dissent_ceiling
+        verdict.unanimous_approve(self.approve_threshold) && verdict.dissent <= self.dissent_ceiling
     }
 
     fn journal(&self, verdict: &Verdict) {
-        let Some(path) = &self.journal_path else { return };
+        let Some(path) = &self.journal_path else {
+            return;
+        };
         if let Ok(mut f) = fs::OpenOptions::new().create(true).append(true).open(path) {
             if let Ok(line) = serde_json::to_string(verdict) {
                 let _ = f.write_all(line.as_bytes());
